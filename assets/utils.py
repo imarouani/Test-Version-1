@@ -56,7 +56,7 @@ if __name__ == "__main__":
     cities_info = fetch_random_cities()
     print("City Details:", cities_info)
 
-# functin that evaluates user input and compares it using gpt 3.5 
+# functin that evaluates user input and compares it using gpt 3.5
 
 def evaluate_guess(city_details, user_guess):
     """

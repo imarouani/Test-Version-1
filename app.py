@@ -78,3 +78,9 @@ if st.session_state.round_complete:
     st.write("Here are the stats for this round:")
     st.write(f"Guesses: {st.session_state.guesses_this_round}")
     st.write(f"Non-Capitals Named: {st.session_state.non_capitals_this_round}")
+
+st.write("Tracking Variables:", {
+    "Guesses This Round": st.session_state.guesses_this_round,
+    "Non-Capitals This Round": st.session_state.non_capitals_this_round,
+    "Round Complete": st.session_state.round_complete,
+})
