@@ -1,0 +1,24 @@
+.stApp {
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+.center-button {
+    position: fixed;
+    top: 70%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    padding: 1rem 2rem;
+    background-color: #FF5733;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.center-button:hover {
+    background-color: #C70039;
+}
