@@ -1,78 +1,80 @@
-from assets.utils import fetch_random_cities, guess_eval
 import streamlit as st
+import pandas as pd
+from assets.utils import fetch_random_cities, evaluate_guess
 
+# Initialize session state variables
+if "game_data" not in st.session_state:
+    st.session_state.game_data = pd.DataFrame(
+        columns=["City_Given-Target_City", "Guesses", "Distance_Target_Named", "How_Far_Off"]
+    )
+if "current_round" not in st.session_state:
+    st.session_state.current_round = None
+if "guesses_this_round" not in st.session_state:
+    st.session_state.guesses_this_round = 0
+if "non_capitals_this_round" not in st.session_state:
+    st.session_state.non_capitals_this_round = 0
+if "round_complete" not in st.session_state:
+    st.session_state.round_complete = False
 
-def main():
-    st.title("Guess the Distance Between Two Cities")
+# Start a new round
+def start_new_round():
+    st.session_state.current_round = fetch_random_cities()  # Fetch data for the round
+    st.session_state.guesses_this_round = 0
+    st.session_state.non_capitals_this_round = 0
+    st.session_state.round_complete = False
 
-    # Initialize session state variables
-    if 'game_data' not in st.session_state:
-        st.session_state.game_data = fetch_random_cities()
-        st.session_state.guesses = []
-        st.session_state.rounds = []
+# Check if the round needs to start
+if st.session_state.current_round is None:
+    start_new_round()
 
-    game_data = st.session_state.game_data
+# Display the game prompt
+current_data = st.session_state.current_round
+reference_city = current_data["capital_1"]["name"]
+reference_country = current_data["capital_1"]["country"]
+distance = current_data["distance_km"]
 
-    # Handle potential errors in fetching data
-    if isinstance(game_data, str):
-        st.error(game_data)
-        return
+st.title("Guess the City!")
+st.write(f"Guess which capital is {distance} km away from {reference_city}, {reference_country}.")
 
-    city1 = game_data['city1']
-    city2 = game_data['city2']
-    target_distance = game_data['distance_km']
+# Input for the user's guess
+user_guess = st.text_input("Enter your guess:", key="user_guess")
+if user_guess:
+    # Evaluate the guess
+    evaluation = evaluate_guess(current_data, user_guess)
+    st.session_state.guesses_this_round += 1
 
-    # Display current round information
-    st.write(f"Guess the distance between **{city1['name']}**, {city1['country']} and **{city2['name']}**, {city2['country']}.")
-    st.write(f"Fun fact about {city1['name']}: {city1['fun_fact']}")
-    st.write(f"Fun fact about {city2['name']}: {city2['fun_fact']}")
+    # Track non-capital guesses
+    if not evaluation["is_capital"]:
+        st.session_state.non_capitals_this_round += 1
 
-    with st.form(key='guess_form'):
-        user_guess = st.number_input("Enter your guess in kilometers:", min_value=0)
-        submit_button = st.form_submit_button(label='Submit')
+    # Provide feedback to the user
+    if evaluation["guess_correct"]:
+        st.success("Congrats, that's the right answer!")
+        st.session_state.round_complete = True
+    else:
+        st.error(f"Wrong! {user_guess} is {'not a capital.' if not evaluation['is_capital'] else ''}")
+        st.info(f"You were {evaluation['distance_to_reference_km']} km off.")
 
-    if submit_button:
-        is_correct, difference = guess_eval(target_distance, user_guess)
-        st.session_state.guesses.append(difference)
+    # Update game data
+    if st.session_state.round_complete:
+        new_entry = {
+            "City_Given-Target_City": f"{reference_city}-{current_data['capital_2']['name']}",
+            "Guesses": st.session_state.guesses_this_round,
+            "Distance_Target_Named": user_guess,
+            "How_Far_Off": evaluation.get("distance_to_reference_km", 0),
+        }
+        st.session_state.game_data = pd.concat(
+            [st.session_state.game_data, pd.DataFrame([new_entry])],
+            ignore_index=True
+        )
 
-        if is_correct:
-            st.success("Congratulations! Your guess is correct.")
-            # Create a label for the round
-            round_label = f"Game {len(st.session_state.rounds) + 1}: {city1['name']}, {city2['name']}"
-            # Save the current round's stats
-            st.session_state.rounds.append({
-                'label': round_label,
-                'target_distance': target_distance,
-                'total_difference': sum(st.session_state.guesses),
-                'num_guesses': len(st.session_state.guesses)
-            })
-            # Reset for the next round
-            st.session_state.game_data = fetch_random_cities()
-            st.session_state.guesses = []
-        else:
-            st.info(f"Your guess was off by {difference:.2f} km. Try again!")
+        # Display "Play Again" button
+        if st.button("Play Again"):
+            start_new_round()
 
-    # Display statistics
-    st.write("---")
-    st.subheader("Statistics")
-    
-    # Current round stats
-    if st.session_state.guesses:
-        st.write("**Current Round:**")
-        st.write(f"- Total Guesses: {len(st.session_state.guesses)}")
-        st.write(f"- Total Difference Across Guesses: {sum(st.session_state.guesses):.2f} km")
-    
-    # Previous rounds stats
-    if st.session_state.rounds:
-        st.write("**Previous Rounds:**")
-        for i, round_data in enumerate(st.session_state.rounds, start=1):
-            # Safely access 'label' with a fallback
-            round_label = round_data.get('label', f"Game {i}")
-            st.write(f"**{round_label}:**")
-            st.write(f"- Target Distance: {round_data['target_distance']} km")
-            st.write(f"- Total Difference Across Guesses: {round_data['total_difference']:.2f} km")
-            st.write(f"- Number of Guesses: {round_data['num_guesses']}")
-            st.write("---")
-
-if __name__ == "__main__":
-    main()
+# Display stats after the round
+if st.session_state.round_complete:
+    st.subheader("Round Summary")
+    st.write("Here are the stats for this round:")
+    st.write(f"Guesses: {st.session_state.guesses_this_round}")
+    st.write(f"Non-Capitals Named: {st.session_state.non_capitals_this_round}")
